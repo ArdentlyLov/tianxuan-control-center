@@ -1,0 +1,127 @@
+//
+//  Theme.swift
+//  深浅色主题系统 —— 默认天选白青，可切浅色或跟随系统
+//
+
+import SwiftUI
+import AppKit
+
+// MARK: - 主题模式
+
+enum ThemeMode: String, CaseIterable, Identifiable, Hashable {
+    case dark
+    case light
+    case system
+    case tianxuan
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .dark: return "深色"
+        case .light: return "浅色"
+        case .system: return "系统"
+        case .tianxuan: return "天选白青"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .dark: return "moon.fill"
+        case .light: return "sun.max.fill"
+        case .system: return "circle.lefthalf.filled"
+        case .tianxuan: return "sparkles"
+        }
+    }
+
+    /// nil = 跟随系统
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .dark: return .dark
+        case .light: return .light
+        case .system: return nil
+        case .tianxuan: return .light
+        }
+    }
+
+}
+
+///
+/// 为什么用进程级全局标记而不是 SwiftUI 环境值：`Palette` 的每个 token 都是静态 `Color`，
+/// 真正决定颜色的是 `NSColor` 的动态 provider —— 它在外观解析时被回调，那里拿不到
+/// SwiftUI 环境，只能读一个全局标记。切主题时 `ThemeManager` 先改标记、再改
+/// `NSApp.appearance`，最后靠根视图的身份变化（`.id(mode)`）强制整棵树重建重新解析。
+enum SkinFlag {
+    nonisolated(unsafe) static var tianxuan = false
+}
+
+// MARK: - 主题管理器
+
+final class ThemeManager: ObservableObject {
+    /// 默认天选白青；持久化在 Prefs，可用环境变量 ASUS_THEME=dark|light|system|tianxuan 临时覆盖
+    @Published var mode: ThemeMode {
+        didSet {
+            Prefs.set(mode.rawValue, for: "appearance")
+            SkinFlag.tianxuan = (mode == .tianxuan)
+            applyAppearance()
+        }
+    }
+
+    init() {
+        let env = ProcessInfo.processInfo.environment["ASUS_THEME"]
+            .flatMap(ThemeMode.init(rawValue:))
+        let stored = Prefs.string("appearance").map { $0 == "moss" ? "tianxuan" : $0 }.flatMap(ThemeMode.init(rawValue:))
+        let resolved = env ?? stored ?? .tianxuan
+        mode = resolved
+        // 首帧绘制前就要把标记摆好，否则颜色会先按深色解析一轮再跳变
+        SkinFlag.tianxuan = (resolved == .tianxuan)
+    }
+
+    /// SwiftUI 的 preferredColorScheme 负责界面配色，
+    /// 这里同步 NSApp.appearance，让动态 NSColor（Palette）按同一模式解析。
+    func applyAppearance() {
+        guard NSApp != nil else { return }
+        switch mode {
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        case .light, .tianxuan: NSApp.appearance = NSAppearance(named: .aqua)
+        case .system: NSApp.appearance = nil
+        }
+    }
+}
+
+// MARK: - 自适应颜色
+
+extension NSColor {
+    convenience init(hex: UInt32, alpha: Double = 1) {
+        self.init(srgbRed: Double((hex >> 16) & 0xFF) / 255,
+                  green: Double((hex >> 8) & 0xFF) / 255,
+                  blue: Double(hex & 0xFF) / 255,
+                  alpha: alpha)
+    }
+}
+
+extension Color {
+    /// 深浅色自适应颜色：绘制时按当前外观解析
+    static func adaptive(_ light: UInt32, _ dark: UInt32,
+                         lightOpacity: Double = 1, darkOpacity: Double = 1) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isLight = appearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
+            return isLight
+                ? NSColor(hex: light, alpha: lightOpacity)
+                : NSColor(hex: dark, alpha: darkOpacity)
+        })
+    }
+
+    /// 所以这里优先判 `SkinFlag.tianxuan`，命中就完全忽略 appearance。
+    static func skin(_ light: UInt32, _ dark: UInt32, _ tianxuan: UInt32,
+                     lightOpacity: Double = 1, darkOpacity: Double = 1,
+                     tianxuanOpacity: Double = 1) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            if SkinFlag.tianxuan { return NSColor(hex: tianxuan, alpha: tianxuanOpacity) }
+            let isLight = appearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua
+            return isLight
+                ? NSColor(hex: light, alpha: lightOpacity)
+                : NSColor(hex: dark, alpha: darkOpacity)
+        })
+    }
+}

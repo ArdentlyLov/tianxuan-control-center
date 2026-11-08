@@ -1,0 +1,553 @@
+//
+//  MonitorView.swift
+//  监控页：实时指标、历史趋势、应用排行、手动录制
+//
+
+import SwiftUI
+import AppKit
+
+struct MonitorView: View {
+    @EnvironmentObject var store: SensorStore
+
+    @State private var window: Int = 300            // 秒
+    @State private var sortByCPU = true
+    @State private var recordLabel = ""
+    @State private var selectedApp: (name: String, pid: Int32)?
+    @State private var showAppPicker = false
+
+    private var samples: [MetricSample] { store.samples(window: window) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            liveRow
+            tempCurveSection
+            kernelCounterSection
+            trendSection
+            processSection
+            recordSection
+        }
+        // 只有停在这一页时才枚举进程（500+ 进程一次约 2 ms，没必要每秒都跑）
+        .onAppear { store.setProcessSamplingActive(true) }
+        .onDisappear { store.setProcessSamplingActive(false) }
+    }
+
+    // MARK: - 温度曲线 / 内核计数器（原「传感器」页并入这里）
+
+    private var tempCurveSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle(text: "温度曲线", trailing: "最近 240 秒",
+                         color: Palette.forTemp(store.cpuTemp), command: "monitor --temp")
+            Card {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(store.cpuTemp.map { String(format: "%.1f", $0) } ?? "—")
+                            .font(.system(size: 30, weight: .semibold).monospacedDigit())
+                            .foregroundStyle(Palette.forTemp(store.cpuTemp))
+                        Text("°C")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Palette.textSecondary)
+                        Spacer()
+                        Text(store.tempStatusText)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Palette.forTemp(store.cpuTemp))
+                    }
+                    TempChart(values: store.tempHistory,
+                              color: Palette.forTemp(store.cpuTemp),
+                              lower: 35, upper: 100, height: 150)
+                }
+            }
+        }
+    }
+
+    private var kernelCounterSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle(text: "内核计数器", trailing: "不依赖 kext", color: Palette.mLoad, command: "monitor --kernel")
+            Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 22) {
+                        CoreBars(values: store.load.perCore, height: 54, showLabels: true)
+                            .frame(width: 300, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 5) {
+                            LabelValue(label: "总占用",
+                                       value: String(format: "%.1f%%  (%d 线程)",
+                                                     store.load.total * 100, store.load.perCore.count))
+                            LabelValue(label: "负载均值",
+                                       value: String(format: "%.2f / %.2f / %.2f",
+                                                     store.load.load1, store.load.load5, store.load.load15))
+                            LabelValue(label: "内核热压力", value: store.load.thermalText)
+                            LabelValue(label: "内存占用",
+                                       value: String(format: "%.1f%%", store.load.memoryUsedRatio * 100))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Text("这些读数来自 Mach 内核计数器（host_processor_info / host_statistics64 / ProcessInfo.thermalState），和 VirtualSMC 无关，也不经过任何 kext。CPU 温度是个例外：macOS 没有 /dev/mem，MSR/SMN 只能在内核态读，所以温度只能取 SMC 的值。")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(Palette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    // MARK: - 实时
+
+    private var liveRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle(text: "实时", trailing: "\(store.samplingRate.longLabel)采样 · 历史保留 15 分钟", command: "monitor --live")
+            // 卡片多了会挤成一排细条，改用自适应网格：宽度够就一行排开，不够自动换行。
+            // 最小列宽 132 与原先 5 张卡时的实际宽度一致，窗口默认宽度下观感不变。
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 132, maximum: 220), spacing: 12)],
+                      spacing: 12) {
+                liveTile(title: "CPU 温度",
+                         value: store.cpuTemp.map { String(format: "%.1f", $0) } ?? "—",
+                         unit: "°C",
+                         sub: store.tempStatusText,
+                         color: Palette.forTemp(store.cpuTemp),
+                         series: samples.compactMap(\.temp),
+                         lower: 35, upper: 100)
+                liveTile(title: "CPU 负载",
+                         value: String(format: "%.0f", store.load.total * 100),
+                         unit: "%",
+                         sub: "\(store.load.perCore.count) 线程 · 热压力 \(store.load.thermalText)",
+                         color: Palette.mLoad,
+                         series: samples.map { $0.load * 100 },
+                         lower: 0, upper: 100)
+                liveTile(title: "CPU 平均频率",
+                         value: store.cpuFreq.liveGHz.map { String(format: "%.2f", $0) } ?? "—",
+                         unit: "GHz",
+                         sub: store.cpuFrequencyDetail,
+                         color: Palette.mFreq,
+                         series: samples.compactMap(\.freqGHz).map { $0 * 100 },
+                         lower: 0, upper: 500)
+                liveTile(title: "内存占用",
+                         value: String(format: "%.0f", store.load.memoryUsedRatio * 100),
+                         unit: "%",
+                         sub: memorySubtitle,
+                         color: Palette.mMem,
+                         series: samples.map { $0.mem * 100 },
+                         lower: 0, upper: 100)
+                liveTile(title: "CPU 功耗",
+                         value: store.powerWatts.map { String(format: "%.1f", $0) } ?? "—",
+                         unit: "W",
+                         sub: store.powerWatts == nil
+                            ? (store.menuValue(.power).reason ?? "未提供 CPU 功耗") : "整包功耗",
+                         color: Palette.mPower,
+                         series: samples.compactMap(\.power),
+                         lower: 0, upper: 120)
+                liveTile(title: "GPU 功耗",
+                         value: store.gpuPowerWatts.map { String(format: "%.1f", $0) } ?? "—",
+                         unit: "W",
+                         sub: gpuPowerSubtitle,
+                         color: Palette.mGPUPow,
+                         series: store.gpuPowerHistory,
+                         lower: 0, upper: max(30, store.gpuPowerLimitWatts ?? 120))
+                liveTile(title: "GPU 核心频率",
+                         value: store.gpuFrequencyMHz.map { String(format: "%.0f", $0) } ?? "—",
+                         unit: "MHz",
+                         sub: store.menuValue(.gpuFreq).reason ?? "GPU 驱动核心时钟",
+                         color: Palette.mFreq,
+                         series: store.gpuFrequencyHistory,
+                         lower: 0, upper: max(2000, (store.gpuFrequencyHistory.max() ?? 2000) * 1.1))
+                liveTile(title: "整机功耗",
+                         value: store.systemPowerWatts.map { String(format: "%.1f", $0) } ?? "—",
+                         unit: "W",
+                         sub: sysPowerSubtitle,
+                         color: Palette.mSysPower,
+                         series: store.systemPowerHistory,
+                         lower: 0,
+                         upper: max(60, (store.systemPowerHistory.max() ?? 60) * 1.15))
+                liveTile(title: "显存占用",
+                         value: store.vramUsedMB.map { String(format: "%.1f", $0 / 1024) } ?? "—",
+                         unit: "GiB",
+                         sub: vramSubtitle,
+                         color: Palette.mVRAM,
+                         series: store.vramHistory,
+                         lower: 0, upper: max(1, store.vramTotalMB ?? 1))
+            }
+        }
+    }
+
+    private var gpuPowerSubtitle: String {
+        guard store.gpuPowerWatts != nil else { return store.menuValue(.gpuPower).reason ?? "未提供 GPU 功耗" }
+        if let lim = store.gpuPowerLimitWatts { return String(format: "上限 %.0f W", lim) }
+        return "GPU 驱动功耗读数"
+    }
+
+    /// 整机功耗 = CPU 整包 + GPU；缺一路时退化为单项，这里如实说明
+    private var sysPowerSubtitle: String {
+        switch (store.powerWatts != nil, store.gpuPowerWatts != nil) {
+        case (true, true):  return "CPU + GPU 合计"
+        case (true, false): return "仅 CPU（GPU 未提供功耗）"
+        case (false, true): return "仅 GPU（CPU 未提供功耗）"
+        default:            return "需 CPU / GPU 功耗通道"
+        }
+    }
+
+    private var vramSubtitle: String {
+        if let used = store.vramUsedMB, let total = store.vramTotalMB, total > 0 {
+            return String(format: "%.0f MiB · %.0f%% · 共 %.1f GiB", used, used / total * 100, total / 1024)
+        }
+        if let used = store.vramUsedMB { return String(format: "已用 %.0f MiB · 容量未知", used) }
+        if let total = store.vramTotalMB { return String(format: "共 %.1f GiB · 未提供占用", total / 1024) }
+        return store.menuValue(.gpuVRAM).reason ?? "未提供显存读数"
+    }
+
+    private var memorySubtitle: String {
+        let used = Double(store.load.memActive + store.load.memWired + store.load.memCompressed) / 1_073_741_824
+        let total = Double(store.load.memTotal) / 1_073_741_824
+        return String(format: "%.1f / %.0f GB · 交换 %.1f GB", used, total, Double(store.load.swapUsed) / 1_073_741_824)
+    }
+
+    private func liveTile(title: String, value: String, unit: String, sub: String,
+                          color: Color, series: [Double], lower: Double, upper: Double) -> some View {
+        Card(padding: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(value)
+                        .font(.system(size: 26, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(color)
+                    Text(unit)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Palette.textSecondary)
+                }
+                Sparkline(values: series, color: color, lowerBound: lower, upperBound: upper)
+                    .frame(height: 32)
+                Text(sub)
+                    .font(.system(size: 9.5))
+                    .foregroundStyle(Palette.textTertiary)
+                    .lineLimit(1)
+                    .help(sub)
+            }
+        }
+    }
+
+    // MARK: - 趋势
+
+    private var trendSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SectionTitle(text: "趋势", command: "monitor --trend")
+                Spacer()
+                SegmentedButtons(items: [("1 分钟", 60), ("5 分钟", 300), ("15 分钟", 900)],
+                                 selection: $window)
+            }
+
+            Card {
+                VStack(spacing: 10) {
+                    metricRow(name: "温度", unit: "°C", color: Palette.forTemp(store.cpuTemp),
+                              values: samples.compactMap(\.temp), lower: 35, upper: 100,
+                              current: store.cpuTemp)
+                    Divider().opacity(0.35)
+                    metricRow(name: "CPU", unit: "%", color: Palette.mLoad,
+                              values: samples.map { $0.load * 100 }, lower: 0, upper: 100,
+                              current: store.load.total * 100)
+                    Divider().opacity(0.35)
+                    metricRow(name: "内存", unit: "%", color: Palette.mMem,
+                              values: samples.map { $0.mem * 100 }, lower: 0, upper: 100,
+                              current: store.load.memoryUsedRatio * 100)
+                    if let ghz = store.cpuFreq.liveGHz {
+                        Divider().opacity(0.35)
+                        metricRow(name: "频率", unit: "GHz", color: Palette.mFreq,
+                                  values: samples.compactMap(\.freqGHz), lower: 0, upper: 5,
+                                  current: ghz)
+                    }
+                    if let w = store.powerWatts {
+                        Divider().opacity(0.35)
+                        metricRow(name: "功耗", unit: "W", color: Palette.mPower,
+                                  values: samples.compactMap(\.power), lower: 0, upper: 120,
+                                  current: w)
+                    }
+                    if store.recording?.appPID != nil {
+                        Divider().opacity(0.35)
+                        metricRow(name: "目标应用 CPU", unit: "%", color: Palette.accent2,
+                                  values: samples.compactMap { $0.appCPU.map { $0 * 100 } },
+                                  lower: 0, upper: 100,
+                                  current: samples.last?.appCPU.map { $0 * 100 })
+                    }
+                }
+            }
+        }
+    }
+
+    private func metricRow(name: String, unit: String, color: Color,
+                           values: [Double], lower: Double, upper: Double,
+                           current: Double?) -> some View {
+        HStack(spacing: 10) {
+            Text(name)
+                .font(.system(size: 10.5))
+                .foregroundStyle(Palette.textSecondary)
+                .frame(width: 72, alignment: .leading)
+            Sparkline(values: values, color: color, lowerBound: lower, upperBound: upper)
+                .frame(height: 38)
+                .frame(maxWidth: .infinity)
+            Text(current.map { String(format: "%.1f", $0) } ?? "—")
+                .font(.system(size: 12, weight: .semibold).monospacedDigit())
+                .foregroundStyle(Palette.text)
+                .frame(width: 58, alignment: .trailing)
+            Text(unit)
+                .font(.system(size: 9))
+                .foregroundStyle(Palette.textTertiary)
+                .frame(width: 18, alignment: .leading)
+        }
+        .frame(height: 42)
+    }
+
+    // MARK: - 应用排行
+
+    private var processSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SectionTitle(text: "应用", trailing: "按 \(sortByCPU ? "CPU" : "内存") 排序 · 每 2 秒刷新", command: "monitor --procs")
+                Spacer()
+                SegmentedButtons(items: [("CPU", true), ("内存", false)],
+                                 selection: $sortByCPU)
+            }
+
+            Card(padding: 12) {
+                VStack(spacing: 0) {
+                    ForEach(Array(topProcesses.enumerated()), id: \.element.id) { idx, p in
+                        processRow(p)
+                        if idx < topProcesses.count - 1 { Divider().opacity(0.25) }
+                    }
+                    if topProcesses.isEmpty {
+                        Text("首次采样中…")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Palette.textTertiary)
+                            .padding(.vertical, 8)
+                    }
+                }
+            }
+        }
+    }
+
+    private var topProcesses: [ProcSample] {
+        ProcessSampler.top(store.processes, byCPU: sortByCPU, limit: 10)
+    }
+
+    private func processRow(_ p: ProcSample) -> some View {
+        let maxCPU = max(topProcesses.map(\.cpu).max() ?? 1, 0.01)
+        let frac = sortByCPU ? min(p.cpu / max(maxCPU, 0.01), 1) : min(p.memoryMB / max(topProcesses.map(\.memoryMB).max() ?? 1, 1), 1)
+        return HStack(spacing: 10) {
+            Text(p.name)
+                .font(.system(size: 11.5))
+                .lineLimit(1)
+                .frame(width: 180, alignment: .leading)
+            Text("pid \(p.pid)")
+                .font(.system(size: 9).monospacedDigit())
+                .foregroundStyle(Palette.textTertiary)
+                .frame(width: 62, alignment: .leading)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Palette.trackFill)
+                    Capsule()
+                        .fill(selectedApp?.pid == p.pid ? Palette.warn : Palette.mLoad.opacity(0.85))
+                        .frame(width: max(2, geo.size.width * CGFloat(frac)))
+                }
+            }
+            .frame(height: 6)
+            Text(sortByCPU ? String(format: "%.0f%%", p.cpu * 100) : String(format: "%.0f MB", p.memoryMB))
+                .font(.system(size: 10.5).monospacedDigit())
+                .frame(width: 62, alignment: .trailing)
+        }
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selectedApp = (p.name, p.pid)
+            if recordLabel.isEmpty { recordLabel = p.name }
+        }
+    }
+
+    // MARK: - 录制
+
+    private var recordSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle(text: "录制", trailing: "把温度 / 负载 / 内存 / 目标应用记成 CSV", command: "monitor --record")
+
+            Card {
+                if let rec = store.recording {
+                    recordingActive(rec)
+                } else {
+                    recordingIdle
+                }
+            }
+
+            if !store.recordings.isEmpty {
+                Card(padding: 12) {
+                    VStack(spacing: 0) {
+                        ForEach(Array(store.recordings.enumerated()), id: \.element.id) { idx, r in
+                            recordingRow(r)
+                            if idx < store.recordings.count - 1 { Divider().opacity(0.3) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var recordingIdle: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Button {
+                    showAppPicker.toggle()
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "app.dashed")
+                            .font(.system(size: 10))
+                        Text(selectedApp.map { "目标：\($0.name)" } ?? "绑定应用（可选）")
+                    }
+                }
+                .buttonStyle(GrayButtonStyle())
+                .popover(isPresented: $showAppPicker) {
+                    AppPicker(processes: store.processes.sorted { $0.cpu > $1.cpu }) { picked in
+                        selectedApp = picked
+                        showAppPicker = false
+                    }
+                    .frame(width: 280, height: 320)
+                }
+
+                if selectedApp != nil {
+                    Button("清除") { selectedApp = nil }
+                        .buttonStyle(GrayButtonStyle())
+                }
+
+                Spacer()
+
+                Text("将记录：温度 · 负载 · 内存\(selectedApp == nil ? "" : " · \(selectedApp!.name)")")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Palette.textTertiary)
+
+                Button {
+                    let name = selectedApp?.name ?? "系统"
+                    store.startRecording(label: "\(name) · \(Self.stamp())",
+                                         appName: selectedApp?.name,
+                                         appPID: selectedApp?.pid)
+                } label: {
+                    Text("开始录制")
+                }
+                .buttonStyle(GrayButtonStyle(prominent: true))
+            }
+            Text("录制期间每秒记录一次温度、CPU 负载、内存占用；如果绑定了应用，还会记录该应用的 CPU 与常驻内存。停止后自动写成 CSV。")
+                .font(.system(size: 10.5))
+                .foregroundStyle(Palette.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func recordingActive(_ rec: ActiveRecording) -> some View {
+        HStack(spacing: 14) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(Palette.bad)
+                    .frame(width: 8, height: 8)
+                Text("录制中")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Palette.bad)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(rec.label)
+                    .font(.system(size: 12, weight: .medium))
+                Text("\(rec.appName.map { "目标 \($0)" } ?? "未绑定应用") · \(formatElapsed(rec.elapsed)) · \(rec.samples.count) 个采样")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            Spacer()
+            Button {
+                _ = store.stopRecording()
+            } label: {
+                Text("停止并保存")
+            }
+            .buttonStyle(GrayButtonStyle(prominent: true))
+        }
+    }
+
+    static func stamp() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MM-dd HH:mm"
+        return f.string(from: Date())
+    }
+
+    private func formatElapsed(_ t: TimeInterval) -> String {
+        let s = Int(t)
+        return String(format: "%02d:%02d", s / 60, s % 60)
+    }
+
+    private func recordingRow(_ r: RecordingSummary) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(r.label)
+                    .font(.system(size: 11.5, weight: .medium))
+                Text("\(r.appName.map { "\($0) · " } ?? "")\(r.durationText) · \(r.sampleCount) 采样")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Palette.textTertiary)
+            }
+            .frame(width: 240, alignment: .leading)
+
+            Text(String(format: "温度 %.1f / 峰值 %.1f °C", r.avgTemp, r.maxTemp))
+                .font(.system(size: 10.5).monospacedDigit())
+                .foregroundStyle(Palette.textSecondary)
+            Text(String(format: "负载 %.0f%% · 内存 %.0f%%", r.avgLoad * 100, r.avgMem * 100))
+                .font(.system(size: 10.5).monospacedDigit())
+                .foregroundStyle(Palette.textSecondary)
+            Spacer()
+            Button("打开") {
+                NSWorkspace.shared.open(RecordingStore.fileURL(for: r))
+            }
+            .buttonStyle(GrayButtonStyle())
+            Button("删除") { store.deleteRecording(r) }
+                .buttonStyle(GrayButtonStyle())
+        }
+        .padding(.vertical, 5)
+    }
+}
+
+/// 应用选择弹窗
+struct AppPicker: View {
+    let processes: [ProcSample]
+    let onPick: ((name: String, pid: Int32)?) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("选择要跟踪的应用")
+                    .font(.system(size: 11.5, weight: .semibold))
+                Spacer()
+                Button("不绑定") { onPick(nil) }
+                    .buttonStyle(GrayButtonStyle())
+            }
+            .padding(10)
+
+            Divider()
+
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(processes.prefix(40)) { p in
+                        Button {
+                            onPick((p.name, p.pid))
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text(p.name)
+                                    .font(.system(size: 11.5))
+                                    .lineLimit(1)
+                                Spacer()
+                                Text(String(format: "%.0f%%", p.cpu * 100))
+                                    .font(.system(size: 10).monospacedDigit())
+                                    .foregroundStyle(Palette.textSecondary)
+                                Text("pid \(p.pid)")
+                                    .font(.system(size: 9).monospacedDigit())
+                                    .foregroundStyle(Palette.textTertiary)
+                            }
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        Divider().opacity(0.2)
+                    }
+                }
+            }
+        }
+    }
+}

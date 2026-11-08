@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>dev.vela.VelaAsusWMI</string>
+<key>CFBundleName</key><string>VelaAsusWMI</string>
+<key>CFBundleExecutable</key><string>VelaAsusWMI</string>
+<key>CFBundlePackageType</key><string>KEXT</string>
+<key>CFBundleVersion</key><string>1.0.2</string>
+<key>CFBundleShortVersionString</key><string>1.0.2</string>
+<key>OSBundleRequired</key><string>Root</string>
+<key>OSBundleLibraries</key><dict>
+<key>com.apple.kpi.iokit</key><string>8.0.0</string>
+<key>com.apple.kpi.libkern</key><string>8.0.0</string>
+<key>com.apple.kpi.mach</key><string>8.0.0</string>
+</dict>
+<key>IOKitPersonalities</key><dict><key>ASUS Management WMI</key><dict>
+<key>CFBundleIdentifier</key><string>dev.vela.VelaAsusWMI</string>
+<key>IOClass</key><string>VelaAsusWMI</string>
+<key>IOProviderClass</key><string>IOACPIPlatformDevice</string>
+<key>IONameMatch</key><array><string>PNP0C14</string><string>ASUSWMI</string></array>
+<key>IOUserClientClass</key><string>VelaAsusWMIUserClient</string>
+<key>IOProbeScore</key><integer>1000</integer>
+</dict></dict>
+</dict></plist>
