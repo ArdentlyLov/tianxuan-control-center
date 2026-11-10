@@ -16,6 +16,7 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            PageHeader(title: "设置", subtitle: "调整启动行为、界面外观与日常偏好。")
             SectionTitle(text: "常规", command: "config --general")
 
             Card(padding: 16) {

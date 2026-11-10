@@ -9,6 +9,12 @@ struct TianxuanControlApp: App {
     @StateObject private var store = SensorStore.shared
     @StateObject private var theme = ThemeManager()
 
+    init() {
+        // 机型探测会等待子进程退出，必须在 SwiftUI 开始求值视图之前完成。
+        // 否则概览首次访问共享控制器时会重入布局，触发 AttributeGraph 崩溃。
+        _ = FanControl.shared
+    }
+
     var body: some Scene {
         WindowGroup(id: "main") {
             ContentView()

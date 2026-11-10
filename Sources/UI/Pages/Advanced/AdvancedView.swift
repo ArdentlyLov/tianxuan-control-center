@@ -17,13 +17,7 @@ struct AdvancedView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("高级功能")
-                    .font(.system(size: 22, weight: .bold))
-                Text("面向进阶用户的系统级调整，操作需要管理员授权，请谨慎使用。")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Palette.textSecondary)
-            }
+            PageHeader(title: "高级功能", subtitle: "面向进阶用户的系统级调整，操作需要管理员授权，请谨慎使用。")
 
             SectionTitle(text: "风扇自定义曲线",
                          trailing: customCurve.unlocked ? "已解锁" : "未解锁",

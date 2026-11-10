@@ -14,22 +14,9 @@ struct LevelDots: View {
     var body: some View {
         HStack(spacing: 4) {
             ForEach(0..<maxLevel, id: \.self) { i in
-                RoundedRectangle(cornerRadius: Palette.cornerRadius, style: .continuous)
-                    .fill(i < level
-                          ? LinearGradient(colors: [Palette.accent, Palette.accent.opacity(0.65)],
-                                           startPoint: .bottom, endPoint: .top)
-                          : LinearGradient(colors: [Color.adaptive(0x000000, 0xFFFFFF, lightOpacity: 0.07, darkOpacity: 0.08),
-                                                    Color.adaptive(0x000000, 0xFFFFFF, lightOpacity: 0.035, darkOpacity: 0.04)],
-                                           startPoint: .bottom, endPoint: .top))
-                    .frame(height: 16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Palette.cornerRadius, style: .continuous)
-                            .strokeBorder(i < level
-                                          ? Color.adaptive(0x000000, 0xFFFFFF, lightOpacity: 0.22, darkOpacity: 0.25)
-                                          : Color.adaptive(0x000000, 0xFFFFFF, lightOpacity: 0.12, darkOpacity: 0.10),
-                                          lineWidth: 0.6)
-                    )
-                    .shadow(color: i < level ? Palette.accent.opacity(0.55) : .clear, radius: 4)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(i < level ? Palette.accent : Palette.trackFill)
+                    .frame(height: 10)
                     .onTapGesture { onSelect?(i + 1) }
             }
         }
@@ -93,19 +80,13 @@ struct Pill: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 9.5, weight: .medium))
-            .tracking(0.3)
+            .font(.system(size: 10, weight: .medium))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .padding(.horizontal, 8)
-            .padding(.vertical, 3)
+            .padding(.vertical, 4)
             .background(
-                RoundedRectangle(cornerRadius: Palette.cornerRadius, style: .continuous)
-                    .fill(color.opacity(0.12))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: Palette.cornerRadius, style: .continuous)
-                    .strokeBorder(color.opacity(0.40), lineWidth: 0.8)
+                Capsule().fill(color.opacity(0.10))
             )
             .foregroundStyle(color)
     }
@@ -115,23 +96,25 @@ struct Pill: View {
 
 struct GrayButtonStyle: ButtonStyle {
     var prominent = false
+    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 11.5, weight: .semibold))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .font(.system(size: 11.5, weight: .medium))
+            .padding(.horizontal, 13)
+            .padding(.vertical, 8)
             .background(
-                PanelShape(radius: 3, cut: 6)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(prominent
-                          ? Palette.accent.opacity(configuration.isPressed ? 0.8 : 1)
-                          : Palette.accent.opacity(configuration.isPressed ? 0.14 : 0.06))
+                          ? Palette.buttonAccent.opacity(configuration.isPressed ? 0.85 : 1)
+                          : (configuration.isPressed ? Palette.subtle : Palette.panelTop))
             )
             .overlay(
-                PanelShape(radius: 3, cut: 6)
-                    .stroke(Palette.accent.opacity(prominent ? 0.9 : 0.35), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(prominent ? Color.clear : Palette.hairline, lineWidth: 1)
             )
-            .foregroundStyle(prominent ? Palette.bg : Palette.accent)
-            .contentShape(PanelShape(radius: 3, cut: 6))
+            .foregroundStyle(prominent ? Color.white : Palette.text)
+            .contentShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .opacity(isEnabled ? 1 : 0.45)
     }
 }

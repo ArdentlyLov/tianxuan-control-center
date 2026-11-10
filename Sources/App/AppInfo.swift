@@ -18,7 +18,7 @@ enum AppInfo {
     static let helperName = "G-Helper"
     static let helperAuthor = "seerge"
 
-    static let uiInspiration = "ASUS 天选 3 · 月耀白 / 薄荷青"
+    static let uiInspiration = "天选简约 · 灰白 / 科技蓝"
 
     /// 驱动页 / 关于页引用的项目主页
     static let repoURL = "https://github.com/nullmoth/nvidia-macos-driver"

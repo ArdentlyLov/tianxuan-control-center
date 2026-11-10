@@ -28,6 +28,7 @@ struct PerformanceView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            PageHeader(title: "性能与风扇", subtitle: "调整性能模式、功耗上限与散热策略。")
             FirmwareControlCard()
             // [VelaX-PowerLimit] 功耗墙档位（真实可用的「性能模式」：静音/平衡/性能 + 自定义）
             PowerLimitCard()

@@ -25,16 +25,15 @@ struct LevelSlider: View {
                     .frame(height: 5)
 
                 Capsule()
-                    .fill(LinearGradient(colors: [tint.opacity(0.55), tint],
-                                         startPoint: .leading, endPoint: .trailing))
+                    .fill(tint)
                     .frame(width: max(knobX - inset + 1, 1), height: 5)
-                    .shadow(color: tint.opacity(0.7), radius: 6)
                     .offset(x: inset)
 
                 Circle()
-                    .fill(Palette.text)
+                    .fill(Palette.panelTop)
                     .frame(width: 14, height: 14)
-                    .shadow(color: tint.opacity(0.9), radius: 8)
+                    .overlay(Circle().strokeBorder(tint, lineWidth: 2))
+                    .shadow(color: Color.black.opacity(0.12), radius: 2, y: 1)
                     .offset(x: knobX - 7)
             }
             .frame(height: geo.size.height)
@@ -68,10 +67,8 @@ struct BatteryBar: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(Palette.trackFill)
                 Capsule()
-                    .fill(LinearGradient(colors: [color.opacity(0.6), color],
-                                         startPoint: .leading, endPoint: .trailing))
+                    .fill(color)
                     .frame(width: max(geo.size.width * CGFloat(min(max(percent, 0), 100)) / 100, 4))
-                    .shadow(color: color.opacity(0.6), radius: 5)
             }
         }
         .frame(height: 4)
@@ -91,20 +88,18 @@ struct SegmentedButtons<Value: Hashable>: View {
                     selection = items[i].1
                 } label: {
                     Text(items[i].0)
-                        .font(.system(size: 10, weight: selection == items[i].1 ? .semibold : .regular))
-                        .tracking(0.3)
+                        .font(.system(size: 11, weight: selection == items[i].1 ? .medium : .regular))
                         .lineLimit(1)
                         .fixedSize(horizontal: true, vertical: false)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 3)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
                         .background(
-                            RoundedRectangle(cornerRadius: Palette.cornerRadius, style: .continuous)
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
                                 .fill(selection == items[i].1
-                                      ? AnyShapeStyle(LinearGradient(colors: [Palette.accent, Palette.accent.opacity(0.7)],
-                                                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                                      ? AnyShapeStyle(Palette.panelTop)
                                       : AnyShapeStyle(Color.clear))
                         )
-                        .foregroundStyle(selection == items[i].1 ? Color.white : Palette.textSecondary)
+                        .foregroundStyle(selection == items[i].1 ? Palette.accent : Palette.textSecondary)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)

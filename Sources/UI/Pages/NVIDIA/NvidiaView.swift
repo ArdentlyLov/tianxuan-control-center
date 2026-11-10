@@ -27,6 +27,7 @@ struct NvidiaView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            PageHeader(title: "NVIDIA 显卡", subtitle: "查看显卡信息、驱动组件与更新状态。")
             SectionTitle(text: "NVIDIA 驱动更新", trailing: "nullmoth/nvidia-macos-driver", command: "gpu --driver")
             heroCard
 

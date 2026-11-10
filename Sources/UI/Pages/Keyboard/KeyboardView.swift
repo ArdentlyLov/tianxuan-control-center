@@ -26,6 +26,7 @@ struct KeyboardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            PageHeader(title: "键盘与灯效", subtitle: "调整背光亮度、Aura 模式与灯光颜色。")
             SectionTitle(text: "键盘背光",
                          trailing: store.kbdMaxLevel > 0
                             ? "\(store.kbdMode.label) · 0–\(store.kbdMaxLevel) 档"

@@ -13,6 +13,7 @@ struct DiagnosticsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            PageHeader(title: "诊断", subtitle: "查看硬件能力、数据来源与连接状态。")
             SectionTitle(text: "能力矩阵", trailing: "实时探测")
 
             Card {

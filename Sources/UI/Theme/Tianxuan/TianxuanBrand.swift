@@ -4,7 +4,7 @@ struct TianxuanLogo: View {
     var body: some View {
         HStack(spacing: 8) {
             TianxuanEmblem(height: height * 1.3)
-            Text("天选").font(.system(size: height, weight: .black)).tracking(2)
+            Text("TIANXUAN").font(.system(size: height * 0.65, weight: .semibold)).tracking(1.2)
                 .foregroundStyle(Palette.text)
         }
     }

@@ -51,7 +51,7 @@ enum OverviewCard: String, CaseIterable, Identifiable {
     /// 是否占满整行（两列网格里占 2 列），窄卡只占 1 列两两并排
     var isWide: Bool {
         switch self {
-        case .cpuTemp, .gpu, .load, .capability: return true
+        case .load, .capability: return true
         default: return false
         }
     }

@@ -9,27 +9,41 @@ struct ContentView: View {
     var body: some View {
         HStack(spacing: 0) {
             SidebarView(page: $router.page)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if pageReady {
-                        switch router.page {
-                        case .overview: OverviewView()
-                        case .monitor: MonitorView()
-                        case .network: NetworkView()
-                        case .keyboard: KeyboardView()
-                        case .menubar: MenuBarSettingsView()
-                        case .performance: PerformanceView()
-                        case .nvidia: NvidiaView()
-                        case .diagnostics: DiagnosticsView()
-                        case .advanced: AdvancedView()
-                        case .settings: SettingsView()
-                        case .about: AboutView()
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Color.clear.frame(height: 0).id("pageTop")
+                        VStack(alignment: .leading, spacing: 16) {
+                            if pageReady {
+                                switch router.page {
+                                case .overview: OverviewView()
+                                case .monitor: MonitorView()
+                                case .network: NetworkView()
+                                case .keyboard: KeyboardView()
+                                case .menubar: MenuBarSettingsView()
+                                case .performance: PerformanceView()
+                                case .nvidia: NvidiaView()
+                                case .diagnostics: DiagnosticsView()
+                                case .advanced: AdvancedView()
+                                case .settings: SettingsView()
+                                case .about: AboutView()
+                                }
+                            } else { Color.clear.frame(height: 1) }
                         }
-                    } else { Color.clear.frame(height: 1) }
+                        .padding(24).frame(maxWidth: 960, alignment: .leading)
+                        .frame(maxWidth: .infinity).background(ScrollerAutoHide())
+                    }
                 }
-                .padding(24).frame(maxWidth: 960, alignment: .leading)
-                .frame(maxWidth: .infinity).background(ScrollerAutoHide())
-            }.modifier(TianxuanScrollEdgeOff())
+                .id(router.page)
+                .modifier(TianxuanScrollEdgeOff())
+                .onChange(of: pageReady) { ready in
+                    guard ready else { return }
+                    DispatchQueue.main.async { proxy.scrollTo("pageTop", anchor: .top) }
+                }
+                .onChange(of: router.page) { _ in
+                    DispatchQueue.main.async { proxy.scrollTo("pageTop", anchor: .top) }
+                }
+            }
         }
         .id(theme.mode)
         .background { WorkspaceBackground().ignoresSafeArea() }

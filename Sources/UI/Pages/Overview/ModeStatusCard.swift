@@ -13,27 +13,27 @@ struct ModeStatusCard: View {
     @ObservedObject private var thermal = ThermalControl.shared
 
     var body: some View {
-        Card(padding: 16) {
-            VStack(alignment: .leading, spacing: 4) {
+        Card(padding: 20) {
+            VStack(alignment: .leading, spacing: 15) {
                 SectionTitle(text: "当前模式", trailing: "功耗 / 风扇",
-                             color: Palette.warn, code: "MISSION", command: "mission --profile")
+                             color: Palette.accent)
                 HStack(spacing: 0) {
                     modeColumn(power.kextSupported ? "功耗墙" : "性能模式",
                                powerLabel,
                                powerSub,
-                               color: power.profile == .quiet ? Palette.teal : Palette.warn)
+                               color: Palette.text)
                         .frame(maxWidth: .infinity)
                     Rectangle()
                         .fill(Palette.hairline)
-                        .frame(width: 1, height: 36)
-                    modeColumn("风扇", fanLabel, fanSub, color: Palette.teal)
+                        .frame(width: 1, height: 45)
+                    modeColumn("风扇", fanLabel, fanSub, color: Palette.text)
                         .frame(maxWidth: .infinity)
                 }
-                .padding(.top, 2)
+                .padding(.top, 1)
             }
             .frame(maxHeight: .infinity, alignment: .top)
         }
-        .frame(height: 108)
+        .frame(height: 144)
         .onAppear {
             power.refreshApplied()
             thermal.refresh()
@@ -47,26 +47,20 @@ struct ModeStatusCard: View {
 
     private func modeColumn(_ title: String, _ value: String, _ sub: String,
                             color: Color) -> some View {
-        VStack(spacing: 2) {
-            if Palette.isTianxuan {
-                Text(title)
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .tracking(0.5)
-                    .foregroundStyle(Palette.accent.opacity(0.8))
-            } else {
-                Text(title)
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(Palette.textTertiary)
-            }
-            Text(Palette.isTianxuan ? TianxuanText.code(value) : value)
-                .font(.system(size: 15, weight: .semibold))
+        VStack(spacing: 6) {
+            Text(title)
+                .font(.system(size: 10))
+                .foregroundStyle(Palette.textSecondary)
+            Text(value)
+                .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(sub)
-                .font(.system(size: 9))
+                .font(.system(size: 10))
                 .foregroundStyle(Palette.textTertiary)
                 .lineLimit(1)
+                .help(sub)
         }
         .frame(maxWidth: .infinity)
     }

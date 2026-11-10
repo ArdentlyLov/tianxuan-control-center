@@ -10,6 +10,7 @@ struct NetworkView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            PageHeader(title: "网络流量", subtitle: "查看实时传输速度、累计流量与网络接口状态。")
             SectionTitle(text: "网络流量", trailing: totalsTrailing, color: Palette.mNet, command: "net --flow")
 
             Card {

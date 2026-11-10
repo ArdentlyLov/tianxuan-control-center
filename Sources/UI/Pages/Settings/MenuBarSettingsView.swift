@@ -22,17 +22,7 @@ struct MenuBarSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // 标题
-            VStack(alignment: .leading, spacing: 6) {
-                Text("菜单栏")
-                    .font(.system(size: 21, weight: .bold))
-                    .tracking(0.4)
-                Text("勾选想常驻在顶部菜单栏的监控项。勾得越少，标题栏越短；"
-                     + "灰色项说明这台机器上拿不到数据，原因写在下面。")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Palette.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            PageHeader(title: "菜单栏", subtitle: "选择常驻菜单栏的监控项；不可用项会显示具体原因。")
 
             Card {
                 VStack(alignment: .leading, spacing: 0) {

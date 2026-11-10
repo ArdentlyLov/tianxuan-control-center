@@ -14,12 +14,14 @@ enum Snapshot {
                        page: Page = .overview) -> Bool {
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
-        // 出图用的皮肤：ASUS_THEME=dark|light|tianxuan（默认天选白青）
+        // 出图用的皮肤：ASUS_THEME=dark|light|tianxuan（默认天选简约）
         let envMode = ProcessInfo.processInfo.environment["ASUS_THEME"]
             .flatMap(ThemeMode.init(rawValue:)) ?? .tianxuan
         SkinFlag.tianxuan = (envMode == .tianxuan)
         app.appearance = NSAppearance(named: (envMode == .light || envMode == .tianxuan) ? .aqua : .darkAqua)
 
+        // 和正常启动一样，在创建视图前完成控制器的同步机型探测。
+        _ = FanControl.shared
         let store = SensorStore.shared
         store.start()                      // 先起引擎（内部会加载静态信息）
         store.overrideRate(.fast)          // 出图用 1 秒档，不写偏好
@@ -58,7 +60,7 @@ enum Snapshot {
         HStack(alignment: .top, spacing: 0) {
             SidebarView(page: .constant(page))
                 .environmentObject(store)
-                .frame(width: 200, height: size.height)
+                .frame(width: 212, height: size.height)
             VStack(alignment: .leading, spacing: 16) {
                 switch page {
                 case .overview: OverviewView()
@@ -75,7 +77,7 @@ enum Snapshot {
                 }
             }
             .padding(24)
-            .frame(width: size.width - 200, alignment: .leading)
+            .frame(width: size.width - 212, alignment: .leading)
             .background(Palette.bg)
         }
         .environmentObject(store)

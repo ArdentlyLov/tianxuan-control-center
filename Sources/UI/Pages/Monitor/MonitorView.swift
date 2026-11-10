@@ -19,6 +19,7 @@ struct MonitorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            PageHeader(title: "实时监控", subtitle: "查看硬件状态与历史趋势，记录应用运行表现。")
             liveRow
             tempCurveSection
             kernelCounterSection
@@ -66,7 +67,7 @@ struct MonitorView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top, spacing: 22) {
                         CoreBars(values: store.load.perCore, height: 54, showLabels: true)
-                            .frame(width: 300, alignment: .leading)
+                            .frame(minWidth: 150, maxWidth: .infinity, alignment: .leading)
                         VStack(alignment: .leading, spacing: 5) {
                             LabelValue(label: "总占用",
                                        value: String(format: "%.1f%%  (%d 线程)",
@@ -78,7 +79,7 @@ struct MonitorView: View {
                             LabelValue(label: "内存占用",
                                        value: String(format: "%.1f%%", store.load.memoryUsedRatio * 100))
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(width: 290, alignment: .leading)
                     }
                     Text("这些读数来自 Mach 内核计数器（host_processor_info / host_statistics64 / ProcessInfo.thermalState），和 VirtualSMC 无关，也不经过任何 kext。CPU 温度是个例外：macOS 没有 /dev/mem，MSR/SMN 只能在内核态读，所以温度只能取 SMC 的值。")
                         .font(.system(size: 10.5))
@@ -95,8 +96,7 @@ struct MonitorView: View {
         VStack(alignment: .leading, spacing: 8) {
             SectionTitle(text: "实时", trailing: "\(store.samplingRate.longLabel)采样 · 历史保留 15 分钟", command: "monitor --live")
             // 卡片多了会挤成一排细条，改用自适应网格：宽度够就一行排开，不够自动换行。
-            // 最小列宽 132 与原先 5 张卡时的实际宽度一致，窗口默认宽度下观感不变。
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 132, maximum: 220), spacing: 12)],
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 156), spacing: 12)],
                       spacing: 12) {
                 liveTile(title: "CPU 温度",
                          value: store.cpuTemp.map { String(format: "%.1f", $0) } ?? "—",
@@ -200,23 +200,28 @@ struct MonitorView: View {
 
     private func liveTile(title: String, value: String, unit: String, sub: String,
                           color: Color, series: [Double], lower: Double, upper: Double) -> some View {
-        Card(padding: 14) {
-            VStack(alignment: .leading, spacing: 4) {
+        Card(padding: 18) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(title)
-                    .font(.system(size: 11))
+                    .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(Palette.textSecondary)
+                    .lineLimit(1)
                 HStack(alignment: .firstTextBaseline, spacing: 3) {
                     Text(value)
-                        .font(.system(size: 26, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(color)
+                        .font(.system(size: 30, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(value == "—" ? Palette.textSecondary : Palette.text)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                     Text(unit)
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
                         .foregroundStyle(Palette.textSecondary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
                 Sparkline(values: series, color: color, lowerBound: lower, upperBound: upper)
                     .frame(height: 32)
                 Text(sub)
-                    .font(.system(size: 9.5))
+                    .font(.system(size: 10.5))
                     .foregroundStyle(Palette.textTertiary)
                     .lineLimit(1)
                     .help(sub)
@@ -290,7 +295,9 @@ struct MonitorView: View {
             Text(unit)
                 .font(.system(size: 9))
                 .foregroundStyle(Palette.textTertiary)
-                .frame(width: 18, alignment: .leading)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(width: 26, alignment: .leading)
         }
         .frame(height: 42)
     }

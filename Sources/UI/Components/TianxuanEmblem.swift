@@ -1,28 +1,37 @@
 import SwiftUI
 
-/// 原创天选风格机甲徽记，与应用图标共用同一轮廓。
+/// 从提供的 SVG 中提取几何徽记，按原始比例居中绘制。
 struct TianxuanGlyph: Shape {
     func path(in rect: CGRect) -> Path {
-        let points: [(CGFloat, CGFloat)] = [
-            (0.07,0.19),(0.40,0.19),(0.49,0.30),(0.60,0.19),(0.93,0.19),
-            (0.80,0.39),(0.61,0.39),(0.54,0.50),(0.54,0.74),(0.43,0.86),
-            (0.43,0.50),(0.36,0.39),(0.20,0.39)
+        let polygons: [[CGPoint]] = [
+            [CGPoint(x: 78, y: 57), CGPoint(x: 78, y: 179), CGPoint(x: 142, y: 216), CGPoint(x: 142, y: 94)],
+            [CGPoint(x: 158, y: 103), CGPoint(x: 158, y: 263), CGPoint(x: 221, y: 299), CGPoint(x: 221, y: 139)],
+            [CGPoint(x: 382, y: 57), CGPoint(x: 319, y: 93), CGPoint(x: 319, y: 147), CGPoint(x: 382, y: 111)],
+            [CGPoint(x: 382, y: 125), CGPoint(x: 319, y: 162), CGPoint(x: 319, y: 216), CGPoint(x: 382, y: 180)],
+            [CGPoint(x: 302, y: 103), CGPoint(x: 239, y: 139), CGPoint(x: 239, y: 299), CGPoint(x: 302, y: 263)]
         ]
+        let scale = min(rect.width / 304, rect.height / 242)
+        let origin = CGPoint(x: rect.minX + (rect.width - 304 * scale) / 2,
+                             y: rect.minY + (rect.height - 242 * scale) / 2)
         var path = Path()
-        for (i, p) in points.enumerated() {
-            let point = CGPoint(x: rect.minX + p.0 * rect.width, y: rect.minY + p.1 * rect.height)
-            if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        for polygon in polygons {
+            for (index, point) in polygon.enumerated() {
+                let fitted = CGPoint(x: origin.x + (point.x - 78) * scale,
+                                     y: origin.y + (point.y - 57) * scale)
+                if index == 0 { path.move(to: fitted) } else { path.addLine(to: fitted) }
+            }
+            path.closeSubpath()
         }
-        path.closeSubpath()
         return path
     }
 }
+
 struct TianxuanEmblem: View {
     var height: CGFloat = 32
     var opacity: Double = 1
     var body: some View {
         TianxuanGlyph().fill(Palette.accent)
-            .frame(width: height, height: height)
+            .frame(width: height * 304 / 242, height: height)
             .opacity(opacity)
             .accessibilityLabel("天选徽记")
     }

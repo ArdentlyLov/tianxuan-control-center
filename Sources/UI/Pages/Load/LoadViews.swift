@@ -44,21 +44,12 @@ struct CoreBars: View {
         .frame(height: height)
     }
 
-    /// 每核占用率配色：低 → 高走「绿 → 蓝 → 黄 → 红」，与 CPU 负载的身份色（蓝）同源。
+    /// 用同一蓝色的深浅表示占用，状态告警留给温度与热压力。
     private func color(for v: Double) -> Color {
-        if Palette.isTianxuan {
-            switch v {
-            case ..<0.35: return Palette.mLoad.opacity(0.30)
-            case ..<0.7: return Palette.mLoad.opacity(0.60)
-            case ..<0.9: return Palette.accent2
-            default: return Palette.accent
-            }
-        }
         switch v {
-        case ..<0.35: return Palette.ok
-        case ..<0.7: return Palette.mLoad
-        case ..<0.9: return Palette.warn
-        default: return Palette.bad
+        case ..<0.35: return Palette.mLoad.opacity(0.45)
+        case ..<0.7: return Palette.mLoad.opacity(0.70)
+        default: return Palette.mLoad
         }
     }
 }
@@ -69,42 +60,45 @@ struct LoadCard: View {
 
     var body: some View {
         Card {
-            HStack(alignment: .top, spacing: 18) {
-                VStack(alignment: .leading, spacing: 5) {
-                    SectionTitle(text: "系统负载", trailing: store.samplingRate.label,
-                                 color: Palette.mLoad, code: "COMPUTE", command: "compute --load")
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text(String(format: "%.0f", store.load.total * 100))
-                            .font(.system(size: 24, weight: .semibold).monospacedDigit())
-                        Text("%")
+            VStack(alignment: .leading, spacing: 16) {
+                SectionTitle(text: "系统负载", trailing: store.samplingRate.label,
+                             color: Palette.mLoad, code: "COMPUTE", command: "compute --load")
+                HStack(alignment: .center, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(String(format: "%.0f", store.load.total * 100))
+                                .font(.system(size: 28, weight: .semibold).monospacedDigit())
+                                .foregroundStyle(Palette.text)
+                            Text("%")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Palette.textSecondary)
+                        }
+                        Text("\(store.load.perCore.count) 线程")
                             .font(.system(size: 11))
                             .foregroundStyle(Palette.textSecondary)
-                        Text("\(store.load.perCore.count) 线程")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Palette.textTertiary)
-                            .padding(.leading, 4)
                     }
+                    .frame(width: 100, alignment: .leading)
+
+                    CoreBars(values: store.load.perCore, height: 48, spacing: 3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    VStack(alignment: .trailing, spacing: 8) {
+                        metric("热压力", store.load.thermalText,
+                               color: store.load.thermal == .nominal ? Palette.ok : Palette.warn)
+                        metric("负载均值", String(format: "%.2f / %.2f / %.2f",
+                                                store.load.load1, store.load.load5, store.load.load15))
+                        metric("内存占用", String(format: "%.0f%%", store.load.memoryUsedRatio * 100))
+                    }
+                    .frame(width: 174, alignment: .trailing)
+                }
+                Divider().opacity(0.45)
+                HStack {
                     Text("Mach 内核计数器 · 无需 kext")
-                        .font(Palette.isTianxuan
-                              ? .system(size: 9.5, design: .monospaced)
-                              : .system(size: 10))
-                        .foregroundStyle(Palette.textTertiary)
-                        .padding(.top, 2)
-
+                    Spacer(minLength: 4)
+                    Text("负载均值：1 / 5 / 15 分钟")
                 }
-                .frame(width: Palette.isTianxuan ? 212 : 200, alignment: .leading)
-
-                CoreBars(values: store.load.perCore, height: 46)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(alignment: .trailing, spacing: 5) {
-                    metric("热压力", store.load.thermalText,
-                           color: store.load.thermal == .nominal ? Palette.ok : Palette.warn)
-                    metric("负载", String(format: "%.2f %.2f %.2f",
-                                        store.load.load1, store.load.load5, store.load.load15))
-                    metric("内存", String(format: "%.0f%%", store.load.memoryUsedRatio * 100))
-                }
-                .frame(width: Palette.isTianxuan ? 172 : 130, alignment: .trailing)
+                .font(.system(size: 10))
+                .foregroundStyle(Palette.textTertiary)
             }
         }
     }
@@ -112,11 +106,11 @@ struct LoadCard: View {
     private func metric(_ label: String, _ value: String, color: Color = Palette.text) -> some View {
         HStack(spacing: 6) {
             Text(label)
-                .font(.system(size: 10))
+                .font(.system(size: 10.5))
                 .foregroundStyle(Palette.textTertiary)
             Spacer(minLength: 0)
-            Text(Palette.isTianxuan ? TianxuanText.code(value) : value)
-                .font(.system(size: 10.5).monospacedDigit())
+            Text(value)
+                .font(.system(size: 11).monospacedDigit())
                 .foregroundStyle(color)
         }
     }

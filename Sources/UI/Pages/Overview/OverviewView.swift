@@ -25,8 +25,8 @@ struct OverviewView: View {
     /// 编辑模式（iOS 小组件式）：开 = 窗口固定、卡片可拖/可增删；关 = 窗口可拖、卡片固定。
     @ObservedObject private var windowState = WindowState.shared
 
-    /// 窄卡（功耗/频率/显卡/风扇/电池）统一高度，保证两两并排时对齐
-    private let smallCardHeight: CGFloat = 108
+    /// 辅助卡片统一高度，保证两两并排时对齐。
+    private let smallCardHeight: CGFloat = 144
 
     private var visibleCards: [OverviewCard] { cards.filter { !hidden.contains($0) } }
 
@@ -72,7 +72,7 @@ struct OverviewView: View {
         }
     }
 
-    /// 把可见卡片分成行：宽卡独占一行，窄卡两两并排；落单窄卡占满整行（避免左右不对称）
+    /// 把可见卡片分成行：宽卡独占一行，窄卡两两并排；落单窄卡补等宽占位。
     private var cardRows: [[OverviewCard]] {
         let list = visibleCards
         var rows: [[OverviewCard]] = []
@@ -118,23 +118,13 @@ struct OverviewView: View {
             .zIndex(draggingCard == card ? 100 : 0)
             .opacity(draggingCard == card ? 0.95 : 1)
             .overlay(
-                RoundedRectangle(cornerRadius: Palette.cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(windowState.isEditMode ? Palette.accent.opacity(0.6) : Color.clear,
                             lineWidth: 1.5)
             )
             .overlay(alignment: .topTrailing) {
                 if windowState.isEditMode {
                     removeBadge(card)
-                }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                if Palette.isTianxuan, let idx = visibleCards.firstIndex(of: card) {
-                    Text(String(format: "%02d", idx + 1))
-                        .font(.system(size: 8.5, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Palette.accent.opacity(0.30))
-                        .padding(.trailing, 11)
-                        .padding(.bottom, 7)
-                        .allowsHitTesting(false)
                 }
             }
             .animation(.spring(response: 0.30, dampingFraction: 0.8), value: draggingCard)
@@ -290,176 +280,127 @@ struct OverviewView: View {
         }
     }
 
-    @ViewBuilder
     private var header: some View {
-        Card(padding: 20, accent: Palette.accent) {
-            HStack(alignment: .center, spacing: 18) {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        Text("TIANXUAN / 03").font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .tracking(1.8).foregroundStyle(Palette.accent)
-                        Spacer(minLength: 0)
-                    }
-                    Text("天选 3 · 控制中心").font(.system(size: 27, weight: .black))
-                        .foregroundStyle(Palette.text)
-                    Text(deviceSummary).font(.system(size: 11)).foregroundStyle(Palette.textSecondary)
-                        .lineLimit(2)
-                    HStack(spacing: 8) {
-                        Button { PageRouter.shared.jump(to: .performance) } label: {
-                            Label("性能与风扇", systemImage: "speedometer")
-                        }.buttonStyle(GrayButtonStyle(prominent: true))
-                        Button { PageRouter.shared.jump(to: .keyboard) } label: {
-                            Label("键盘灯效", systemImage: "keyboard")
-                        }.buttonStyle(GrayButtonStyle())
-                        Spacer(minLength: 0)
-                        Button(windowState.isEditMode ? "完成" : "编辑布局") {
-                            windowState.isEditMode.toggle()
-                        }.buttonStyle(GrayButtonStyle())
-                    }
+        VStack(alignment: .leading, spacing: 12) {
+            PageHeader(title: "设备概览", subtitle: deviceSummary)
+            HStack(spacing: 8) {
+                Button { PageRouter.shared.jump(to: .performance) } label: {
+                    Label("性能与风扇", systemImage: "speedometer")
                 }
-                TianxuanEmblem(height: 94).opacity(0.22).accessibilityHidden(true)
+                .buttonStyle(GrayButtonStyle(prominent: true))
+
+                Button { PageRouter.shared.jump(to: .keyboard) } label: {
+                    Label("键盘灯效", systemImage: "keyboard")
+                }
+                .buttonStyle(GrayButtonStyle())
+
+                Spacer(minLength: 8)
+
+                Button {
+                    windowState.isEditMode.toggle()
+                } label: {
+                    Label(windowState.isEditMode ? "完成" : "编辑布局",
+                          systemImage: windowState.isEditMode ? "checkmark" : "square.grid.2x2")
+                }
+                .buttonStyle(GrayButtonStyle())
             }
         }
     }
+
     private var deviceSummary: String {
         let name = store.hardware.productName.isEmpty ? store.hardware.modelName : store.hardware.productName
         let code = store.hardware.modelCode
         let device = name.isEmpty ? (code.isEmpty ? "当前设备" : code) : name
-        return "当前设备：\(device) · \(store.hardware.cpuShort) · \(String(format: "%.0f", store.hardware.ramGB)) GB RAM"
+        return "\(device) · \(store.hardware.cpuShort) · \(String(format: "%.0f", store.hardware.ramGB)) GB 内存"
     }
 
     private var cpuCard: some View {
-        // CPU 合并卡：左侧温度环 + 状态四行，右侧负载曲线；底部「频率 / 功耗」左右并排、各带一条波形。
-        // 压缩思路：环 116→96、曲线 84/58→68/46、字号 19→17，
-        // 并把原本上下两行的频率与功耗改成左右各半 —— 宽卡横向本来就有余量，
-        // 竖着堆两整行纯属浪费，卡片高度因此少了约三分之一。
-        Card(padding: 16, glow: true) {
-            VStack(alignment: .leading, spacing: 0) {
-                SectionTitle(text: "CPU", trailing: "温度 · 频率 · 功耗", color: Palette.mLoad, code: "SYS.CPU", command: "cpu --stat")
-                Spacer(minLength: 6)
-                HStack(alignment: .center, spacing: 16) {
-                    if Palette.isTianxuan {
-                        TianxuanTempShadow(value: store.cpuTemp, size: 96)
-                    } else {
-                        TempRing(value: store.cpuTemp, size: 96)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        statLine("状态", store.tempStatusText,
-                                 color: Palette.forTemp(store.cpuTemp))
-                        statLine("最低", String(format: "%.1f °C", tempMin))
-                        statLine("最高", String(format: "%.1f °C", tempMax))
-                        statLine("热压力", store.load.thermalText,
-                                 color: store.load.thermal == .nominal ? Palette.ok : Palette.warn)
-                    }
-                    // 固定宽度：让 CPU 卡与 GPU 卡的曲线起点落在同一条竖线上
-                    .frame(width: 146, alignment: .leading)
-                    // 右侧空白用 CPU 负载曲线填充（Sparkline 无网格 / 表格背景）
-                    VStack(alignment: .leading, spacing: 4) {
-                        CodeLabel(text: "负载曲线", size: 9.5)
-                        Sparkline(values: store.loadHistory.map { $0 * 100 },
-                                  color: Palette.mLoad,
-                                  lowerBound: 0, upperBound: 100,
-                                  filled: false, axes: true)
-                            .frame(maxWidth: .infinity, minHeight: 68, maxHeight: 68)
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-                Spacer(minLength: 8)
-                // 频率 / 功耗并排
-                HStack(alignment: .center, spacing: 20) {
-                    HStack(alignment: .center, spacing: 10) {
-                        VStack(alignment: .leading, spacing: 3) {
-                        metricCell("平均频率",
-                                   value: store.cpuFreq.liveGHz.map { String(format: "%.2f", $0) } ?? "—",
-                                   unit: "GHz",
-                                   has: store.cpuFreq.liveGHz != nil,
-                                   color: Palette.mFreq)
-                        Text(store.cpuFrequencyDetail)
-                            .font(.system(size: 9))
-                            .foregroundStyle(Palette.textSecondary)
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle(text: "CPU", trailing: "处理器")
+                HStack(spacing: 16) {
+                    TempRing(value: store.cpuTemp, size: 92)
+                        .help(store.menuValue(.cpuTemp).reason ?? "CPU 温度")
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 5) {
+                            statusIndicator(store.tempStatusText, color: Palette.forTemp(store.cpuTemp))
+                            Spacer(minLength: 4)
+                            Text(String(format: "%.0f%% 负载", store.load.total * 100))
+                                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                                .foregroundStyle(Palette.textSecondary)
                         }
-                        FreqECG(values: store.freqHistory,
-                                color: Palette.mFreq,
-                                lower: 0, upper: 5.5, height: 46, axes: true)
-                            .frame(maxWidth: .infinity)
+                        Text("最低 \(temperatureText(tempMin)) · 最高 \(temperatureText(tempMax))")
+                            .font(.system(size: 10.5).monospacedDigit())
+                            .foregroundStyle(Palette.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                        Text("热压力 · \(store.load.thermalText)")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(store.load.thermal == .nominal ? Palette.textSecondary : Palette.warn)
+                        Sparkline(values: store.loadHistory.map { $0 * 100 }, color: Palette.mLoad,
+                                  lowerBound: 0, upperBound: 100, filled: false)
+                            .frame(height: 22)
+                            .accessibilityLabel("CPU 负载趋势")
                     }
-                    .frame(maxWidth: .infinity)
-
-                    // 功耗：大数 + 折线图（表征 CPU 整包功耗随时间起伏）
-                    HStack(alignment: .center, spacing: 10) {
-                        metricCell("功耗",
-                                   value: store.powerWatts.map { String(format: "%.1f", $0) } ?? "—",
-                                   unit: "W",
-                                   has: store.powerWatts != nil,
-                                   color: Palette.mPower)
-                        Sparkline(values: store.powerHistory,
-                                  color: Palette.mPower,
-                                  lowerBound: 0, upperBound: 100,
-                                  filled: true, axes: true)
-                            .frame(maxWidth: .infinity, minHeight: 46, maxHeight: 46)
-                    }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(height: 92)
+
+                Rectangle().fill(Palette.hairline).frame(height: 1)
+
+                HStack(spacing: 20) {
+                    metricTrend("平均频率",
+                                value: store.cpuFreq.liveGHz.map { String(format: "%.2f", $0) } ?? "—",
+                                unit: "GHz", has: store.cpuFreq.liveGHz != nil,
+                                color: Palette.mFreq, values: store.freqHistory, upper: 5.5)
+                        .help(store.menuValue(.cpuFreq).reason ?? store.cpuFrequencyDetail)
+                    metricTrend("功耗",
+                                value: store.powerWatts.map { String(format: "%.1f", $0) } ?? "—",
+                                unit: "W", has: store.powerWatts != nil,
+                                color: Palette.mPower, values: store.powerHistory, upper: 100)
+                        .help(store.menuValue(.power).reason ?? "CPU 整包功耗")
+                }
+
+                Text(store.cpuFrequencyDetail)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Palette.textTertiary)
+                    .lineLimit(1)
+                    .help(store.menuValue(.cpuFreq).reason ?? store.cpuFrequencyDetail)
             }
+            .frame(maxHeight: .infinity, alignment: .top)
         }
+        .frame(height: 264)
     }
 
-    private var tempMin: Double { store.tempHistory.min() ?? store.cpuTemp ?? 0 }
-    private var tempMax: Double { store.tempHistory.max() ?? store.cpuTemp ?? 0 }
+    private var tempMin: Double? { store.tempHistory.min() ?? store.cpuTemp }
+    private var tempMax: Double? { store.tempHistory.max() ?? store.cpuTemp }
 
-    private func statLine(_ label: String, _ value: String,
-                          color: Color = Palette.text) -> some View {
+    private func temperatureText(_ value: Double?) -> String {
+        value.map { String(format: "%.0f °C", $0) } ?? "—"
+    }
+
+    private func statusIndicator(_ text: String, color: Color) -> some View {
         HStack(spacing: 5) {
-            CodeLabel(text: label, size: 9.5)
-                .frame(width: 40, alignment: .leading)
-            if Palette.isTianxuan {
-                // 规格表式引导规：虚线吃掉中间的空隙，值被推到右端。
-                // 用弹性 Shape 而不是固定长度的「·」，否则窄列里会被压成 0 宽（踩过）。
-                DashedRule()
-                    .stroke(Palette.hairline, style: StrokeStyle(lineWidth: 1, dash: [1, 3]))
-                    .frame(height: 1)
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, 3)
-            }
-            Text(Palette.isTianxuan ? TianxuanText.code(value) : value)
-                .font(Palette.isTianxuan ? TianxuanFont.number(12) : .system(size: 11, weight: .medium).monospacedDigit())
-                .foregroundStyle(color)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-                .layoutPriority(1)
+            Circle().fill(color).frame(width: 5, height: 5)
+            Text(text).font(.system(size: 12, weight: .medium)).foregroundStyle(color)
         }
     }
 
     private var fanCard: some View {
-        Card(padding: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                SectionTitle(text: "风扇", trailing: store.fanAvailable ? "实时" : "不可用",
-                             color: Palette.mFan, code: "COOLANT", command: "coolant --status")
-                // 左右各占一半、中间细分隔线，两列对称
-                // CPU 风扇用风扇色（青绿），GPU 风扇跟随显卡的身份色（紫），一眼看出属谁
-                if Palette.isTianxuan {
-                    VStack(alignment: .leading, spacing: 5) {
-                        fanStatusRow("CPU 风扇", store.fanRPM, Palette.mFan)
-                        fanStatusRow("GPU 风扇", store.fanRPMGPU, Palette.mGPU).padding(.top, 1)
-                        if let center = store.fanRPMCenter {
-                            fanStatusRow("中置风扇", center, Palette.mFan)
-                        }
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle(text: "风扇", trailing: store.fanAvailable ? "实时转速" : "不可用")
+                HStack(spacing: 12) {
+                    fanMetric("CPU", store.fanRPM)
+                    Rectangle().fill(Palette.hairline).frame(width: 1, height: 32)
+                    fanMetric("GPU", store.fanRPMGPU)
+                    if let center = store.fanRPMCenter {
+                        Rectangle().fill(Palette.hairline).frame(width: 1, height: 32)
+                        fanMetric("中置", center)
                     }
-                    .padding(.top, 2)
-                } else {
-                    HStack(spacing: 0) {
-                        fanMetric("CPU", store.fanRPM, color: Palette.mFan)
-                            .frame(maxWidth: .infinity)
-                        Rectangle()
-                            .fill(Palette.hairline)
-                            .frame(width: 1, height: 36)
-                        fanMetric("GPU", store.fanRPMGPU, color: Palette.mGPU)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .padding(.top, 2)
                 }
                 Text(store.fanAvailable ? store.fanSource : "未收到转速反馈")
-                    .font(.system(size: 9))
+                    .font(.system(size: 10))
                     .foregroundStyle(Palette.textTertiary)
                     .lineLimit(1)
                     .help(store.fanAvailable ? store.fanSource : store.fanUnavailableReason)
@@ -469,80 +410,38 @@ struct OverviewView: View {
         .frame(height: smallCardHeight)
     }
 
-
-    private func fanStatusRow(_ key: String, _ rpm: Double?, _ color: Color) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(key)
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                .foregroundStyle(Palette.accent.opacity(0.8))
-            Text(String(repeating: "·", count: 12))
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(Palette.hairline)
-                .lineLimit(1)
-                .layoutPriority(-1)
-            Spacer(minLength: 0)
-            Text(store.fanAvailable ? (rpm.map { String(format: "%.0f", $0) } ?? "—") : "—")
-                .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                .foregroundStyle(store.fanAvailable ? color : Palette.textSecondary)
-            Text("RPM")
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(Palette.textTertiary)
-        }
-    }
-
-    /// 风扇卡里的一列：小标题 CPU/GPU + 转速大字
-    private func fanMetric(_ label: String, _ rpm: Double?, color: Color) -> some View {
-        VStack(spacing: 2) {
-            if Palette.isTianxuan {
-                Text(label)
-                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                    .tracking(0.5)
-                    .foregroundStyle(Palette.accent.opacity(0.8))
-            } else {
-                Text(label)
-                    .font(.system(size: 9.5))
-                    .foregroundStyle(Palette.textTertiary)
-            }
+    private func fanMetric(_ label: String, _ rpm: Double?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label).font(.system(size: 10.5)).foregroundStyle(Palette.textSecondary)
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(store.fanAvailable ? (rpm.map { String(format: "%.0f", $0) } ?? "—") : "—")
-                    .font(Palette.isTianxuan
-                          ? .system(size: 21, weight: .semibold, design: .monospaced)
-                          : .system(size: 22, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(store.fanAvailable ? color : Palette.textSecondary)
-                Text("RPM")
-                    .font(.system(size: 9))
-                    .foregroundStyle(Palette.textTertiary)
+                    .font(.system(size: 22, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(store.fanAvailable ? Palette.text : Palette.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text("RPM").font(.system(size: 9)).foregroundStyle(Palette.textTertiary)
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var batteryCard: some View {
-        Card(padding: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                SectionTitle(text: "电池", color: Palette.mBattery, code: "PWR.CELL", command: "power --cell")
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle(text: "电池", trailing: store.battery.externalPower ? "已连接电源" : "电池供电")
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text("\(store.battery.charge)")
-                        .font(.system(size: 25, weight: .semibold).monospacedDigit())
-                    Text("%")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Palette.textSecondary)
+                        .font(.system(size: 26, weight: .semibold).monospacedDigit())
+                    Text("%").font(.system(size: 11)).foregroundStyle(Palette.textSecondary)
                     Spacer()
                     Image(systemName: store.battery.externalPower ? "powerplug.fill" : "battery.50")
-                        .font(.system(size: 11))
-                        .foregroundStyle(store.battery.externalPower ? Palette.ok : .secondary)
+                        .font(.system(size: 14))
+                        .foregroundStyle(store.battery.externalPower ? Palette.ok : Palette.textSecondary)
                 }
                 BatteryBar(percent: store.battery.charge)
-                if Palette.isTianxuan {
-                    Text("健康 \(String(format: "%.0f%%", store.battery.healthPercent)) · \(store.battery.cycleCount) 次循环")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Palette.textSecondary)
-                } else {
-                    Text("健康 \(String(format: "%.0f%%", store.battery.healthPercent)) · \(store.battery.cycleCount) 次循环")
-                        .font(.system(size: 10.5))
-                        .foregroundStyle(Palette.textSecondary)
-                }
-                Spacer(minLength: 0)
+                Text("健康 \(String(format: "%.0f%%", store.battery.healthPercent)) · \(store.battery.cycleCount) 次循环")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Palette.textTertiary)
             }
             .frame(maxHeight: .infinity, alignment: .top)
         }
@@ -550,55 +449,32 @@ struct OverviewView: View {
     }
 
     private var diskCard: some View {
-        Card(padding: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                SectionTitle(text: "磁盘", trailing: store.disk.volumeName.isEmpty ? "启动宗卷" : store.disk.volumeName,
-                             color: Palette.mDisk, code: "STORAGE", command: "storage --usage")
-                // 占用率大字 + 剩余
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionTitle(text: "磁盘", trailing: store.disk.volumeName.isEmpty ? "启动宗卷" : store.disk.volumeName)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(String(format: "%.0f", store.disk.usedFraction * 100))
-                        .font(.system(size: 25, weight: .semibold).monospacedDigit())
+                        .font(.system(size: 26, weight: .semibold).monospacedDigit())
                         .foregroundStyle(Palette.forDisk(store.disk.usedFraction))
-                    Text("%")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Palette.textSecondary)
-                    Spacer()
-                    if Palette.isTianxuan {
-                        CodeRow(key: "可用",
-                                value: ByteCountFormatter.vela.string(fromByteCount: store.disk.availableBytes),
-                                size: 10, valueColor: Palette.textSecondary)
-                    } else {
-                        Text("可用 \(ByteCountFormatter.vela.string(fromByteCount: store.disk.availableBytes))")
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(Palette.textSecondary)
-                            .lineLimit(1)
-                    }
-                }
-                Spacer(minLength: 0)
-                // 占用率条
-                GeometryReader { geo in
-                    let w = max(geo.size.width, 1)
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Palette.trackFill).frame(height: 6)
-                        Capsule()
-                            .fill(LinearGradient(colors: [Palette.forDisk(store.disk.usedFraction),
-                                                         Palette.forDisk(store.disk.usedFraction).opacity(0.7)],
-                                                 startPoint: .leading, endPoint: .trailing))
-                            .frame(width: max(w * CGFloat(store.disk.usedFraction), 2), height: 6)
-                    }
-                }
-                .frame(height: 6)
-                if Palette.isTianxuan {
-                    CodeRow(key: "已用",
-                            value: "\(ByteCountFormatter.vela.string(fromByteCount: store.disk.usedBytes)) / \(ByteCountFormatter.vela.string(fromByteCount: store.disk.totalBytes))",
-                            size: 10, valueColor: Palette.textSecondary)
-                } else {
-                    Text("已用 \(ByteCountFormatter.vela.string(fromByteCount: store.disk.usedBytes)) / 共 \(ByteCountFormatter.vela.string(fromByteCount: store.disk.totalBytes))")
+                    Text("%").font(.system(size: 11)).foregroundStyle(Palette.textSecondary)
+                    Spacer(minLength: 4)
+                    Text("可用 \(ByteCountFormatter.vela.string(fromByteCount: store.disk.availableBytes))")
                         .font(.system(size: 10.5))
                         .foregroundStyle(Palette.textSecondary)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
                 }
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(Palette.trackFill)
+                        Capsule().fill(Palette.forDisk(store.disk.usedFraction))
+                            .frame(width: max(geo.size.width * CGFloat(min(max(store.disk.usedFraction, 0), 1)), 2))
+                    }
+                }
+                .frame(height: 5)
+                Text("已用 \(ByteCountFormatter.vela.string(fromByteCount: store.disk.usedBytes)) / 共 \(ByteCountFormatter.vela.string(fromByteCount: store.disk.totalBytes))")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Palette.textTertiary)
+                    .lineLimit(1)
             }
             .frame(maxHeight: .infinity, alignment: .top)
         }
@@ -606,104 +482,88 @@ struct OverviewView: View {
     }
 
     private var gpuCard: some View {
-        // 显卡合并卡：与 CPU 卡完全同构 —— 温度环 + 状态/占用率/功耗/显存四行 + 占用率曲线，
-        // 底部「功耗 / 显存」左右并排、各带面积折线（与 CPU 卡的频率/功耗行同尺寸）。
-        // 功耗与显存原先是两张独立的窄卡，按「温度 · 功耗 · 显存」并到这里。
-        Card(padding: 16) {
-            VStack(alignment: .leading, spacing: 0) {
-                SectionTitle(text: "GPU", trailing: "温度 · 频率 · 功耗 · 显存", color: Palette.mGPU, code: "SYS.GPU", command: "gpu --stat")
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                SectionTitle(text: "GPU", trailing: "显卡")
                     .help(store.gpuName ?? "等待 GPU 识别…")
-                Spacer(minLength: 6)
-                HStack(alignment: .center, spacing: 16) {
-                    if Palette.isTianxuan {
-                        TianxuanTempShadow(value: store.gpuTemp, size: 96)
-                    } else {
-                        TempRing(value: store.gpuTemp, size: 96)
-                    }
-                    VStack(alignment: .leading, spacing: 4) {
-                        statLine("状态", gpuTempStatusText,
-                                 color: Palette.forTemp(store.gpuTemp))
-                        statLine("占用率", store.gpuUsage.map { String(format: "%.0f %%", $0) } ?? "—",
-                                 color: Palette.mGPU)
-                        statLine("核心频率", store.gpuFrequencyMHz.map { String(format: "%.0f MHz", $0) } ?? "—",
-                                 color: Palette.mFreq)
+                HStack(spacing: 16) {
+                    TempRing(value: store.gpuTemp, size: 92)
+                        .help(store.menuValue(.gpuTemp).reason ?? "GPU 温度")
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 5) {
+                            statusIndicator(gpuTempStatusText, color: Palette.forTemp(store.gpuTemp))
+                            Spacer(minLength: 4)
+                            Text(store.gpuUsage.map { String(format: "%.0f%% 负载", $0) } ?? "—")
+                                .font(.system(size: 11, weight: .medium).monospacedDigit())
+                                .foregroundStyle(Palette.textSecondary)
+                                .help(store.menuValue(.gpuLoad).reason ?? "GPU 占用率")
+                        }
+                        Text("核心频率 \(store.gpuFrequencyMHz.map { String(format: "%.0f MHz", $0) } ?? "—")")
+                            .font(.system(size: 10.5).monospacedDigit())
+                            .foregroundStyle(Palette.textSecondary)
                             .help(store.menuValue(.gpuFreq).reason ?? "GPU 核心频率")
-                        // 功耗与显存不再在这里列一遍 —— 底部有大数 + 曲线，重复显示只会让卡更挤
+                        Text("占用率趋势")
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(Palette.textTertiary)
+                        Sparkline(values: store.gpuHistory, color: Palette.mGPU,
+                                  lowerBound: 0, upperBound: 100, filled: false)
+                            .frame(height: 22)
+                            .accessibilityLabel("GPU 占用率趋势")
                     }
-                    .frame(width: 146, alignment: .leading)
-                    // 右侧用显卡占用率曲线填充（与 CPU 卡的负载曲线同一位置）
-                    VStack(alignment: .leading, spacing: 4) {
-                        CodeLabel(text: "占用率曲线", size: 9.5)
-                        Sparkline(values: store.gpuHistory,
-                                  color: Palette.mGPU,
-                                  lowerBound: 0, upperBound: 100,
-                                  filled: false, axes: true)
-                            .frame(maxWidth: .infinity, minHeight: 68, maxHeight: 68)
-                    }
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Spacer(minLength: 8)
-                // 功耗 / 显存并排（上限取自驱动上报的强制功耗墙 / 显存总量）
-                HStack(alignment: .center, spacing: 20) {
-                    HStack(alignment: .center, spacing: 10) {
-                        metricCell("功耗",
-                                   value: store.gpuPowerWatts.map { String(format: "%.1f", $0) } ?? "—",
-                                   unit: "W",
-                                   has: store.gpuPowerWatts != nil,
-                                   color: Palette.mGPUPow)
-                            .help(store.menuValue(.gpuPower).reason ?? "GPU 功耗")
-                        Sparkline(values: store.gpuPowerHistory,
-                                  color: Palette.mGPUPow,
-                                  lowerBound: 0,
-                                  upperBound: max(30, store.gpuPowerLimitWatts ?? 120),
-                                  filled: true, axes: true)
-                            .frame(maxWidth: .infinity, minHeight: 46, maxHeight: 46)
-                    }
-                    .frame(maxWidth: .infinity)
+                .frame(height: 92)
 
-                    HStack(alignment: .center, spacing: 10) {
-                        metricCell("显存",
-                                   value: store.vramUsedMB.map { String(format: "%.1f", $0 / 1024) } ?? "—",
-                                   unit: "GiB",
-                                   has: store.vramUsedMB != nil,
-                                   color: Palette.mVRAM)
-                            .help(store.menuValue(.gpuVRAM).reason ?? vramShortText)
-                        Sparkline(values: store.vramHistory,
-                                  color: Palette.mVRAM,
-                                  lowerBound: 0,
-                                  upperBound: max(1, store.vramTotalMB ?? 1),
-                                  filled: true, axes: true)
-                            .frame(maxWidth: .infinity, minHeight: 46, maxHeight: 46)
-                    }
-                    .frame(maxWidth: .infinity)
+                Rectangle().fill(Palette.hairline).frame(height: 1)
+
+                HStack(spacing: 20) {
+                    metricTrend("功耗",
+                                value: store.gpuPowerWatts.map { String(format: "%.1f", $0) } ?? "—",
+                                unit: "W", has: store.gpuPowerWatts != nil,
+                                color: Palette.mGPUPow, values: store.gpuPowerHistory,
+                                upper: max(30, store.gpuPowerLimitWatts ?? 120))
+                        .help(store.menuValue(.gpuPower).reason ?? "GPU 功耗")
+                    metricTrend("显存",
+                                value: store.vramUsedMB.map { String(format: "%.1f", $0 / 1024) } ?? "—",
+                                unit: "GiB", has: store.vramUsedMB != nil,
+                                color: Palette.mVRAM, values: store.vramHistory,
+                                upper: max(1, store.vramTotalMB ?? 1))
+                        .help(store.menuValue(.gpuVRAM).reason ?? vramShortText)
                 }
-            }
-        }
-    }
 
-    /// 宽卡底部「小标题 + 大数 + 单位」那一小格（CPU 的频率/功耗、GPU 的功耗/显存共用）。
-    /// 1.8.10 起两格并排，宽度收窄到 62、字号 19→17，横向留给波形。
-    private func metricCell(_ title: String, value: String, unit: String,
-                            has: Bool, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            CodeLabel(text: title, size: 9.5)
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text(value)
-                    .font(Palette.isTianxuan ? TianxuanFont.number(19)
-                                         : .system(size: 17, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(has ? color : Palette.textSecondary)
+                Text(vramShortText)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Palette.textTertiary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Text(unit)
-                    .font(Palette.isTianxuan ? .system(size: 9, weight: .semibold, design: .monospaced)
-                                         : .system(size: 9.5))
-                    .foregroundStyle(Palette.textSecondary)
+                    .help(store.menuValue(.gpuVRAM).reason ?? vramShortText)
             }
+            .frame(maxHeight: .infinity, alignment: .top)
         }
-        .frame(width: 62, alignment: .leading)
+        .frame(height: 264)
     }
 
-    /// 与 CPU 的状态文案同一套阈值，只换数据源
+    private func metricTrend(_ title: String, value: String, unit: String,
+                             has: Bool, color: Color, values: [Double], upper: Double) -> some View {
+        HStack(alignment: .center, spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.system(size: 10.5)).foregroundStyle(Palette.textSecondary)
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(value)
+                        .font(.system(size: 22, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(has ? Palette.text : Palette.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                    Text(unit).font(.system(size: 10)).foregroundStyle(Palette.textTertiary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Sparkline(values: values, color: color, lowerBound: 0, upperBound: upper, filled: false)
+                .frame(width: 40, height: 28)
+                .accessibilityHidden(true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     private var gpuTempStatusText: String {
         guard let t = store.gpuTemp else { return "无数据" }
         switch t {
@@ -726,8 +586,16 @@ struct OverviewView: View {
 
     private var capabilitySummary: some View {
         Card {
-            VStack(alignment: .leading, spacing: 2) {
-                SectionTitle(text: "macOS 上的能力边界", trailing: "详见「诊断」", color: Palette.accent, code: "SYSINFO", command: "sysinfo --limits")
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    SectionTitle(text: "设备能力", trailing: "macOS 支持状态")
+                    Button {
+                        PageRouter.shared.jump(to: .diagnostics)
+                    } label: {
+                        Label("查看诊断", systemImage: "arrow.up.right")
+                    }
+                    .buttonStyle(GrayButtonStyle())
+                }
                 ForEach(store.capabilities.prefix(5)) { cap in
                     CapabilityRow(cap: cap)
                 }

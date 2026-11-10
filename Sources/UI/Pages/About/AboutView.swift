@@ -12,6 +12,7 @@ struct AboutView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            PageHeader(title: "关于", subtitle: "版本信息、更新记录与项目致谢。")
             brandCard
 
             SectionTitle(text: "更新日志", command: "changelog")
@@ -59,8 +60,8 @@ struct AboutView: View {
     }()
 
     private static let releaseNotes: [(icon: String, title: String, detail: String)] = [
-        ("paintpalette", "天选 3 · 全新白青外观", "以月耀白与薄荷青重绘控制中心。切角面板、简洁侧栏与实时仪表统一视觉，保留深色、浅色和跟随系统外观。"),
-        ("shield.lefthalf.filled", "全新应用图标", "原创 T 形机甲徽记贯穿启动图标与界面品牌，移除旧 ROG 图片与动态装饰。"),
+        ("paintpalette", "更简洁的控制中心", "以中性灰、圆角卡片与蓝色强调重绘界面。CPU 与 GPU 并排展示，主要读数更加清晰，支持深色、浅色和跟随系统外观。"),
+        ("shield.lefthalf.filled", "TIANXUAN 品牌标识", "侧栏使用简洁的图形徽记，关于页展示完整 TIANXUAN 徽标，统一界面中的品牌呈现。"),
         ("slider.horizontal.3", "熟悉的控制，更清晰的状态", "概览提供性能与键盘灯效快捷入口；功耗、风扇、温度与设备能力继续根据真实硬件读数显示。")
     ]
 
@@ -87,34 +88,47 @@ struct AboutView: View {
     // MARK: - 品牌
 
     private var brandCard: some View {
-        Card(padding: 20, accent: Palette.accent, glow: true) {
-            if Palette.isTianxuan {
-                tianxuanBrandRow
-            } else {
-                classicBrandRow
+        Card(padding: 0) {
+            VStack(spacing: 0) {
+                if let artwork = Self.brandArtwork {
+                    Image(nsImage: artwork)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFit()
+                        .frame(height: 210)
+                        .frame(maxWidth: .infinity)
+                        .background(Color.black)
+                        .accessibilityLabel("TIANXUAN 品牌徽标")
+                }
+                classicBrandRow.padding(20)
             }
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
 
-    private var tianxuanBrandRow: some View { classicBrandRow }
+    private static let brandArtwork: NSImage? = {
+        guard let url = Bundle.main.url(forResource: "TianxuanBrand", withExtension: "png") else { return nil }
+        return NSImage(contentsOf: url)
+    }()
 
     private var classicBrandRow: some View {
         HStack(spacing: 18) {
-            Image(nsImage: Self.brandIcon)
-                .resizable()
-                .interpolation(.high)
-                .frame(width: 64, height: 64)
+            if Self.brandArtwork == nil {
+                Image(nsImage: Self.brandIcon)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 64, height: 64)
+            }
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 10) {
                     Text(AppInfo.name)
-                        .font(.system(size: 23, weight: .bold))
+                        .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(Palette.text)
                     Pill(text: AppInfo.displayVersion, color: Palette.accent)
                 }
                 Text(AppInfo.englishName)
-                    .font(.system(size: 10, weight: .semibold))
-                    .tracking(1.2)
-                    .foregroundStyle(Palette.accent)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Palette.textSecondary)
                 Text(AppInfo.tagline)
                     .font(.system(size: 11))
                     .foregroundStyle(Palette.textSecondary)
@@ -212,7 +226,7 @@ struct AboutView: View {
                 creditRow(icon: "paintpalette",
                           title: "UI 灵感",
                           name: AppInfo.uiInspiration,
-                          detail: "参考天选 3 月耀白机身与薄荷青装饰，以切角面板、清晰数字与原创机甲徽记呈现设备状态。",
+                          detail: "以简洁的图形徽记、克制的蓝色与圆角卡片呈现设备状态，优先突出实时读数与操作。",
                           action: nil)
 
                 Divider().opacity(0.35)

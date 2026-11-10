@@ -1,6 +1,6 @@
 //
 //  Theme.swift
-//  深浅色主题系统 —— 默认天选白青，可切浅色或跟随系统
+//  深浅色主题系统 —— 默认天选简约，可切浅色或跟随系统
 //
 
 import SwiftUI
@@ -21,7 +21,7 @@ enum ThemeMode: String, CaseIterable, Identifiable, Hashable {
         case .dark: return "深色"
         case .light: return "浅色"
         case .system: return "系统"
-        case .tianxuan: return "天选白青"
+        case .tianxuan: return "天选简约"
         }
     }
 
@@ -58,7 +58,7 @@ enum SkinFlag {
 // MARK: - 主题管理器
 
 final class ThemeManager: ObservableObject {
-    /// 默认天选白青；持久化在 Prefs，可用环境变量 ASUS_THEME=dark|light|system|tianxuan 临时覆盖
+    /// 默认天选简约；持久化在 Prefs，可用环境变量 ASUS_THEME=dark|light|system|tianxuan 临时覆盖
     @Published var mode: ThemeMode {
         didSet {
             Prefs.set(mode.rawValue, for: "appearance")

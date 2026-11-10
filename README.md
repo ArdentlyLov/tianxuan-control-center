@@ -19,9 +19,9 @@
 
 <img width="1200" alt="天选白青：概览与实时监测" src="Docs/Images/Tianxuan-Overview.png" />
 <img width="1200" alt="深色主题：概览与实时监测" src="Docs/Images/Tianxuan-Overview-Dark.png" />
-<img width="160" alt="原创天选风格启动图标" src="Docs/Images/Tianxuan-AppIcon.png" />
+<img width="160" alt="TUF Gaming 启动图标" src="Docs/Images/Tianxuan-AppIcon.png" />
 
-新界面统一使用中文分组侧栏、切角卡片、薄荷青操作按钮和清晰的数字仪表。概览提供性能与键盘灯效快捷入口，并支持编辑布局。旧 ROG 图片与 550W 装饰素材已移除；应用图标和侧栏使用原创 T 形机甲徽记。
+新界面统一使用中文分组侧栏、切角卡片、薄荷青操作按钮和清晰的数字仪表。概览提供性能与键盘灯效快捷入口，并支持编辑布局。旧 ROG 图片与 550W 装饰素材已移除；应用图标与侧栏采用 TUF Gaming 几何徽记，启动图标使用石墨灰底板与银白前景。
 
 ## 功能
 
