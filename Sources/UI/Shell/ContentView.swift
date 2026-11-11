@@ -24,6 +24,7 @@ struct ContentView: View {
                                 case .performance: PerformanceView()
                                 case .nvidia: NvidiaView()
                                 case .diagnostics: DiagnosticsView()
+                                case .repairGuide: RepairGuideView()
                                 case .advanced: AdvancedView()
                                 case .settings: SettingsView()
                                 case .about: AboutView()

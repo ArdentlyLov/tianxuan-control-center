@@ -2,7 +2,7 @@
 //  Snapshot.swift
 //  离屏渲染界面快照（自检 / 文档配图用，不依赖截屏权限）
 //    AsusControl snapshot <输出路径> [宽 高] [页面]
-//  页面可选：overview / sensors / keyboard / performance / diagnostics
+//  页面可选：overview / monitor / keyboard / performance / diagnostics / repairGuide
 //
 
 import SwiftUI
@@ -71,6 +71,7 @@ enum Snapshot {
                 case .performance: PerformanceView()
                 case .nvidia: NvidiaView()
                 case .diagnostics: DiagnosticsView()
+                case .repairGuide: RepairGuideView()
                 case .advanced: AdvancedView()
                 case .settings: SettingsView()
                 case .about: AboutView()

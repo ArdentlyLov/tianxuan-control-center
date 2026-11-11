@@ -5,7 +5,7 @@ import AppKit
 import Combine
 
 enum Page: String, CaseIterable, Identifiable {
-    case overview, monitor, network, menubar, keyboard, performance, nvidia, advanced, diagnostics, settings, about
+    case overview, monitor, network, menubar, keyboard, performance, nvidia, advanced, diagnostics, repairGuide, settings, about
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -17,6 +17,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .performance: return "性能与风扇"
         case .nvidia: return "NVIDIA 驱动"
         case .diagnostics: return "诊断"
+        case .repairGuide: return "适配说明"
         case .advanced: return "高级功能"
         case .settings: return "设置"
         case .about: return "关于"
@@ -35,6 +36,7 @@ enum Page: String, CaseIterable, Identifiable {
         case .performance: return "fanblades"
         case .nvidia: return "display"
         case .diagnostics: return "stethoscope"
+        case .repairGuide: return "book.closed"
         case .advanced: return "wrench.and.screwdriver"
         case .settings: return "gearshape"
         case .about: return "info.circle"

@@ -10,7 +10,7 @@ struct SidebarView: View {
     private let groups: [(String, [Page])] = [
         ("设备", [.overview, .monitor, .network]),
         ("控制", [.performance, .keyboard, .nvidia]),
-        ("工具", [.menubar, .advanced, .diagnostics, .about])
+        ("工具", [.menubar, .advanced, .diagnostics, .repairGuide, .about])
     ]
 
     var body: some View {
