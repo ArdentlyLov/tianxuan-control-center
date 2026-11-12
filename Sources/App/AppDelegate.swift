@@ -36,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // 外观由 ThemeManager 决定（默认天选白青，可切浅色 / 跟随系统）
+        // 外观由 ThemeManager 决定（默认天选简约，可切浅色 / 跟随系统）
         // 开机 / 唤醒自动下发功耗墙 + 风扇：仅正常启动执行，自检模式不动硬件。
         // 全程在后台线程：规则失效时先补装（必要时弹一次密码框），装好立刻补发一次；
         // 启动初期 kext / SMC 可能还没完全就绪，稍等再发，失败再重试一轮。

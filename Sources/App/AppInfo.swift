@@ -8,10 +8,14 @@ import Foundation
 enum AppInfo {
     static let name = "天选控制中心"
     static let englishName = "Tianxuan Control Center"
-    static let author = "Xelon Jangs"
-    static let githubURL = "https://github.com/Xelon233"
-    static let githubDisplay = "github.com/Xelon233"
+    static let author = "ArdentlyLov"
     static let tagline = "macOS 上的华硕笔记本控制中心"
+
+    /// 本项目的直接上游（GPLv3 修改版，必须保留署名）
+    static let upstreamURL = "https://github.com/Xelon233/Vela-X"
+    static let upstreamDisplay = "github.com/Xelon233/Vela-X"
+    static let upstreamName = "Vela X"
+    static let upstreamAuthor = "Xelon Jangs"
 
     /// G-Helper（本项目的灵感来源与功能参照）
     static let helperURL = "https://github.com/seerge/g-helper"

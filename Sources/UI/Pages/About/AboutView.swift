@@ -183,19 +183,19 @@ struct AboutView: View {
                 LabelValue(label: "版本", value: "\(AppInfo.displayVersion)  (build \(AppInfo.build))")
                 LabelValue(label: "作者", value: AppInfo.author, mono: false)
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("GitHub")
+                    Text("上游项目")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Palette.textSecondary)
                         .frame(width: 108, alignment: .leading)
                     Button {
-                        open(AppInfo.githubURL)
+                        open(AppInfo.upstreamURL)
                     } label: {
-                        Text(AppInfo.githubDisplay)
+                        Text(AppInfo.upstreamDisplay)
                             .font(.system(size: 11.5))
                             .foregroundStyle(Palette.accent)
                     }
                     .buttonStyle(.plain)
-                    .help("打开 \(AppInfo.githubURL)")
+                    .help("打开 \(AppInfo.upstreamURL)")
                     Spacer(minLength: 0)
                 }
                 LabelValue(label: "构建时间", value: AppInfo.buildDateText)
@@ -215,10 +215,18 @@ struct AboutView: View {
     private var creditCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 12) {
+                creditRow(icon: "arrow.triangle.branch",
+                          title: "上游项目",
+                          name: "\(AppInfo.upstreamName)  ·  \(AppInfo.upstreamAuthor)",
+                          detail: "本程序是 Vela X 的修改版（GPLv3），沿用其 macOS 硬件访问实现，界面与部分功能在此基础上修改。",
+                          action: ("打开项目", { open(AppInfo.upstreamURL) }))
+
+                Divider().opacity(0.35)
+
                 creditRow(icon: "wand.and.stars",
                           title: "灵感参考",
                           name: "\(AppInfo.helperName)  ·  \(AppInfo.helperAuthor)",
-                          detail: "风扇曲线、性能模式、MUX、充电上限这些功能的取舍，以及对 ASUS ACPI/WMI 的理解，都来自这个 Windows 项目。本程序是 macOS 上的独立重写。",
+                          detail: "风扇曲线、性能模式、MUX、充电上限这些功能的取舍，以及对 ASUS ACPI/WMI 的理解，都来自这个 Windows 项目。本程序经 Vela X 移植到 macOS。",
                           action: ("打开项目", { open(AppInfo.helperURL) }))
 
                 Divider().opacity(0.35)
@@ -294,8 +302,14 @@ struct AboutView: View {
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
 
+                Text("本程序是 Vela X 的修改版（© 2026 XelonJangs，修改版 © 2026 ArdentlyLov），按 GNU GPLv3 发布，不提供任何担保；完整许可证文本与源代码见项目仓库的 LICENSE。")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Palette.textSecondary)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 HStack(spacing: 8) {
-                    Pill(text: "GPL-3.0 License", color: Palette.textSecondary)
+                    Pill(text: "GPLv3", color: Palette.textSecondary)
                     Pill(text: "x86_64 + arm64", color: Palette.textSecondary)
                     Pill(text: "已采样 \(store.sampleCount) 次", color: Palette.textTertiary)
                     Spacer()

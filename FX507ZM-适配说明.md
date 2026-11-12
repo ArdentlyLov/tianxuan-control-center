@@ -204,4 +204,4 @@ XCPM mode=1，X86PlatformPlugin / Shim 与 /dev/xcpm 可用。交互时 P-core �
 - [G-Helper TUF ACPI 接口](https://github.com/seerge/g-helper/blob/main/app/AsusACPI.cs)
 - [原项目 Vela-X](https://github.com/Xelon233/Vela-X)
 
-保留原作者 Xelon Jangs（Xelon233）署名与 GPLv3 许可。新增代码按 GPLv3 或后续版本提供。
+保留原作者 Xelon Jangs（Xelon233）署名与 GPLv3 许可。上游为 GPLv3 第 3 版（不含「或后续版本」），本修改版整体按 GPLv3 发布。

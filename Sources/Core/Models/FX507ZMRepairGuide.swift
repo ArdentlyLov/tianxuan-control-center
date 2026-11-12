@@ -100,7 +100,7 @@ enum FX507ZMRepairGuide {
         .init(title: "原项目 Vela-X", url: URL(string: "https://github.com/Xelon233/Vela-X")!)
     ]
     static let evidence = "核验依据：本机 kmutil、VelaAsusWMI IORegistry、活动 EFI 的必要驱动条目、Intel Power Gadget 安装信息、应用只读 CLI、IntelPowerProbe 实机采样，以及 2026-11-10 XCPM 修订部署报告。完整 ACPI、EFI 平台私有信息与账户凭据不随指南分发。"
-    static let license = "保留原作者 Xelon Jangs（Xelon233）署名与 GPLv3 许可。新增代码按 GPLv3 或后续版本提供。"
+    static let license = "保留原作者 Xelon Jangs（Xelon233）署名与 GPLv3 许可。上游为 GPLv3 第 3 版（不含「或后续版本」），本修改版整体按 GPLv3 发布。"
 
     static var copyText: String {
         var lines = ["# \(title)", "", "验证日期：\(verifiedDate)", "", hardware, "", system, "", summary, "", scope,
