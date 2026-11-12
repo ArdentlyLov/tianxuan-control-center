@@ -5,7 +5,6 @@ dist/
 *.log
 
 # ===== Swift / Xcode =====
-*.xcodeproj
 xcuserdata/
 .swiftpm/
 DerivedData/
